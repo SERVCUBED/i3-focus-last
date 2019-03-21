@@ -7,6 +7,7 @@
 
 // Using https://github.com/drmgc/i3ipcpp
 #include <i3ipc++/ipc.hpp>
+#include <fstream>
 
 i3ipc::connection  conn;
 double next_evt = 0;
@@ -31,23 +32,51 @@ void signalHandler( int signum ) {
       return;
     }
 
-  std::remove (pidfname);
-  exit(signum);
+  if (signum != SIGUSR2)
+    std::remove (pidfname);
+
+  exit(0);
 }
 
-int main ()
+int main (int argc, char *argv[])
 {
+  int pid = NULL;
+
+  if (argc > 1)
+     std::istringstream(argv[argc - 1]) >> delay;
+  //std::cout << "delay: " << delay << std::endl;
+
+  // Focus last active window
   signal(SIGUSR1, signalHandler);
+  // Quit without removing PID file, to be sent when another process takes over
+  signal(SIGUSR2, signalHandler);
   signal(SIGKILL, signalHandler);
   signal(SIGINT, signalHandler);
 
+  std::ifstream pidstream(pidfname);
+  if (pidstream && pidstream.is_open ())
+    {
+      pidstream >> pid;
+      if (pid > 0 && kill (pid, 0) == 0)
+        {
+          kill (pid, SIGUSR2);
+          std::cerr << "SIGUSR2 pid " << pid << std::endl;
+        }
+      pidstream.close ();
+    }
+
+  std::ofstream opidstream(pidfname, std::ios_base::out | std::ios_base::trunc);
+  pid = getpid ();
   std::cout << getpid () << std::endl;
-
-  FILE *pidfile = std::fopen (pidfname, "w");
-  fprintf (pidfile, "%d", getpid ());
-  std::fclose (pidfile);
-
-  //std::cout << "delay: " << delay << std::endl;
+  if (opidstream && opidstream.is_open ()) {
+      opidstream << pid;
+      opidstream.close ();
+    }
+  else
+    {
+      std::cerr << "Unable to write PID file." << std::endl;
+      return 74; // input/output error
+    }
 
   conn.subscribe(i3ipc::ET_WINDOW);
 

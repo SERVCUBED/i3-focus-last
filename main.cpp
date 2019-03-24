@@ -151,18 +151,22 @@ int main (int argc, char *argv[])
       //std::cout << "window_event: " << (char)ev.type << std::endl;
       if (ev.type != i3ipc::WindowEventType::FOCUS) // Handle type 'NEW' here too?
         return;
-      double time = std::clock ();
-      if (time < next_evt)
-        {
-          //std::cout << "time < delay: " << (time - next_evt) << std::endl;
-          return;
-        }
       if (ev.container) {
-          if (ids[focused_index] != ev.container->id)
+          uint64_t id = ev.container->id;
+          double time = std::clock ();
+
+          if (time < next_evt) // If event happened too quickly
             {
+              //std::cout << "time < delay: " << (time - next_evt) << std::endl;
+              if (ids[!focused_index] != id) // If other window is not the one focused to
+                ids[focused_index] = id; // Update current window
+            }
+          else if (ids[focused_index] != id) // Else if current window is not the one focused to
+            {
+              // Set other window
               focused_index = !focused_index;
               //std::cout << "\tSwitched to #" << ev.container->id << " - " << ev.container->name << ' - ' << ev.container->window_properties.window_role << std::endl;
-              ids[focused_index] = ev.container->id;
+              ids[focused_index] = id;
             }
           next_evt = time + delay;
         }

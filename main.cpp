@@ -19,15 +19,24 @@ std::string currentOutput;
 const char *pidfname = "/tmp/i3-focus-last.pidfile";
 
 
-i3ipc::container_t getWindowFromContainer(i3ipc::container_t *container)
+i3ipc::container_t *getWindowFromContainer(i3ipc::container_t *container)
 {
-  for (auto n : container->nodes)
+  //if (container->xwindow_id != NULL)
+  //  std::cout << "xwindow_id " << container->xwindow_id << std::endl;
+  if (!container->nodes.empty ())
     {
-      // Return the first node from each nested container
-      i3ipc::container_t *con = n.get ();
-      return getWindowFromContainer (con);
+      for (auto &node : container->nodes)
+      {
+          i3ipc::container_t *con = getWindowFromContainer (node.get ());
+          if (con != nullptr)
+            {
+              //std::cout << "Looking at con id " << con->id << std::endl;
+              return con;
+            }
+          //std::cout << "Container null. Backing up one level" << std::endl;
+        }
     }
-  return *container;
+  return (container->xwindow_id != NULL)? container : nullptr;
 }
 
 void signalHandler( int signum ) {
@@ -51,7 +60,7 @@ void signalHandler( int signum ) {
       const std::shared_ptr<i3ipc::container_t> tree = conn.get_tree ();
       std::list<std::shared_ptr<i3ipc::container_t>> nodes = tree.get()->nodes; // Outputs
 
-      for (auto n : nodes)
+      for (const auto &n : nodes)
         {
           i3ipc::container_t *con = n.get ();
           if (con->name == currentOutput && con->type == "output")
@@ -62,7 +71,7 @@ void signalHandler( int signum ) {
             }
         }
 
-      for (auto n : nodes)
+      for (const auto &n : nodes)
         {
           i3ipc::container_t *con = n.get ();
           if (con->name == "content")
@@ -74,16 +83,19 @@ void signalHandler( int signum ) {
         }
 
       //std::cout << "Looking for workspace " << currentWorkspace << std::endl;
-      for (auto n : nodes)
+      for (const auto &n : nodes)
         {
           i3ipc::container_t *con = n.get ();
           if (con->name == currentWorkspace && con->type == "workspace")
             {
               //std::cout << "Found workspace " << con->name << std::endl;
-              nodes = con->nodes; // Containers
+              con = getWindowFromContainer (con);
+
+              if (con == nullptr)
+                break;
 
               std::stringstream ss;
-              ss << "[con_id=" << getWindowFromContainer (con).id << "] focus";
+              ss << "[con_id=" << con->id << "] focus";
               //std::cout << ss.str () << std::endl;
               conn.send_command (ss.str ());
 
@@ -91,7 +103,8 @@ void signalHandler( int signum ) {
             }
         }
 
-      std::cerr << "Whoops, didn't find a container to focus" << std::endl;
+      //std::cerr << "Whoops, didn't find a container to focus; current output " << currentOutput
+      //          << "; current workspace " << currentWorkspace << std::endl;
 
       return;
     }

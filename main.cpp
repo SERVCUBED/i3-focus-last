@@ -13,7 +13,7 @@ i3ipc::connection  conn;
 double next_evt = 0;
 uint64_t ids[] = {NULL, NULL};
 int focused_index = 0;
-int delay = 100;
+int delay = 300;
 std::string currentWorkspace;
 std::string currentOutput;
 const char *pidfname = "/tmp/i3-focus-last.pidfile";
@@ -167,21 +167,11 @@ int main (int argc, char *argv[])
       if (ev.container) {
           uint64_t id = ev.container->id;
           double time = std::clock ();
-
-          if (time < next_evt) // If event happened too quickly
-            {
-              //std::cout << "time < delay: " << (time - next_evt) << std::endl;
-              if (ids[!focused_index] != id) // If other window is not the one focused to
-                ids[focused_index] = id; // Update current window
-            }
-          else if (ids[focused_index] != id) // Else if current window is not the one focused to
-            {
-              // Set other window
-              focused_index = !focused_index;
-              //std::cout << "\tSwitched to #" << ev.container->id << " - " << ev.container->name << ' - ' << ev.container->window_properties.window_role << std::endl;
-              ids[focused_index] = id;
-            }
+          if (time > next_evt || ids[!focused_index] == id)
+            focused_index = !focused_index;
+          ids[focused_index] = id;
           next_evt = time + delay;
+          //std::cout << "\tSwitched to #" << ev.container->id << " - " << ev.container->name << ' - ' << ev.container->window_properties.window_role << std::endl;
         }
   });
 

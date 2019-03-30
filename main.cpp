@@ -13,7 +13,7 @@ i3ipc::connection  conn;
 double next_evt = 0;
 uint64_t ids[] = {NULL, NULL};
 int focused_index = 0;
-int delay = 300;
+int delay = 200;
 std::string currentWorkspace;
 std::string currentOutput;
 const char *pidfname = "/tmp/i3-focus-last.pidfile";

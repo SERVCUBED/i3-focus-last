@@ -3,11 +3,14 @@
 #include <sstream>
 #include <csignal>
 #include <unistd.h>
-
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <thread>
 
 // Using https://github.com/drmgc/i3ipcpp
 #include <i3ipc++/ipc.hpp>
 #include <fstream>
+#include <tkPort.h>
 
 i3ipc::connection  conn;
 double next_evt = 0;
@@ -16,18 +19,21 @@ int focused_index = 0;
 int delay = 200;
 std::string currentWorkspace;
 std::string currentOutput;
-const char *pidfname = "/tmp/i3-focus-last.pidfile";
+const char *pipefname = "/tmp/i3-focus-last.pipe";
 
+#define MAX_BUF 512
 
-i3ipc::container_t *getWindowFromContainer(i3ipc::container_t *container)
+i3ipc::container_t *getWindowFromContainer(i3ipc::container_t *container, bool reversed = false)
 {
   //if (container->xwindow_id != NULL)
   //  std::cout << "xwindow_id " << container->xwindow_id << std::endl;
   if (!container->nodes.empty ())
     {
+      if (reversed)
+        container->nodes.reverse ();
       for (auto &node : container->nodes)
       {
-          i3ipc::container_t *con = getWindowFromContainer (node.get ());
+          i3ipc::container_t *con = getWindowFromContainer (node.get (), reversed);
           if (con != nullptr)
             {
               //std::cout << "Looking at con id " << con->id << std::endl;
@@ -39,124 +45,192 @@ i3ipc::container_t *getWindowFromContainer(i3ipc::container_t *container)
   return (container->xwindow_id != NULL)? container : nullptr;
 }
 
+void focusLastActive()
+{
+  if (ids[!focused_index] == NULL)
+    return;
+
+  std::stringstream ss;
+  //std::cout << "last focused: " << ids[!focused_index] << std::endl;
+  ss << "[con_id=" << ids[!focused_index] << "] focus";
+  //std::cout << ss.str () << std::endl;
+  conn.send_command (ss.str ());
+}
+
+void focusTopBottom(const std::string &outputName, const std::string &workspaceName, bool top)
+{
+  const std::shared_ptr<i3ipc::container_t> tree = conn.get_tree ();
+  std::list<std::shared_ptr<i3ipc::container_t>> nodes = tree.get()->nodes; // Outputs
+
+  for (const auto &n : nodes)
+    {
+      i3ipc::container_t *con = n.get ();
+      if (con->name == outputName && con->type == "output")
+        {
+          //std::cout << "Found output " << con->name << std::endl;
+          nodes = con->nodes;
+          break;
+        }
+    }
+
+  for (const auto &n : nodes)
+    {
+      i3ipc::container_t *con = n.get ();
+      if (con->name == "content")
+        {
+          //std::cout << "Found content " << con->id << std::endl;
+          nodes = con->nodes; // Workspaces
+          break;
+        }
+    }
+
+  //std::cout << "Looking for workspace " << currentWorkspace << std::endl;
+  for (const auto &n : nodes)
+    {
+      i3ipc::container_t *con = n.get ();
+      if (con->name == workspaceName && con->type == "workspace")
+        {
+          //std::cout << "Found workspace " << con->name << std::endl;
+          con = getWindowFromContainer (con, !top);
+
+          if (con == nullptr)
+            break;
+
+          std::stringstream ss;
+          ss << "[con_id=" << con->id << "] focus";
+          //std::cout << ss.str () << std::endl;
+          conn.send_command (ss.str ());
+
+          return;
+        }
+    }
+
+  std::cerr << "Whoops, didn't find a container to focus; output " << outputName
+            << "; workspace " << workspaceName << std::endl;
+}
+
+void focusTopBottomOnOutput(const std::string &outputName, bool top = true)
+{
+  if (outputName == currentOutput)
+    {
+      focusTopBottom (currentOutput, currentWorkspace, top);
+      return;
+    }
+
+  const std::vector<std::shared_ptr<i3ipc::output_t>> outs = conn.get_outputs ();
+
+  for (const std::shared_ptr<i3ipc::output_t> &out : outs)
+    {
+      if (out->name == outputName)
+        {
+          focusTopBottom (outputName, out->current_workspace, top);
+          return;
+        }
+    }
+  std::cerr << "Couldn't find output with name: " << outputName << std::endl;
+}
+
+void focusTopBottomOnWorkspace(const std::string &workspaceName, bool top = true)
+{
+  if (workspaceName == currentWorkspace)
+    {
+      focusTopBottom (currentOutput, currentWorkspace, top);
+      return;
+    }
+
+  const std::vector<std::shared_ptr<i3ipc::workspace_t>> wss = conn.get_workspaces ();
+
+  for (const std::shared_ptr<i3ipc::workspace_t> &ws : wss)
+    {
+      if (ws->name == workspaceName)
+        {
+          focusTopBottom (ws->output, workspaceName, top);
+          return;
+        }
+    }
+  std::cerr << "Couldn't find workspace with name: " << workspaceName << std::endl;
+}
+
 void signalHandler( int signum ) {
   //std::cout << "Interrupt signal (" << signum << ") received.\n";
 
-  if (signum == SIGUSR1)
-    {
-      if (ids[!focused_index] == NULL)
-          return;
-
-      std::stringstream ss;
-      //std::cout << "last focused: " << ids[!focused_index] << std::endl;
-      ss << "[con_id=" << ids[!focused_index] << "] focus";
-      //std::cout << ss.str () << std::endl;
-      conn.send_command (ss.str ());
-      return;
-    }
-
-  if (signum == SIGUSR2)
-    {
-      const std::shared_ptr<i3ipc::container_t> tree = conn.get_tree ();
-      std::list<std::shared_ptr<i3ipc::container_t>> nodes = tree.get()->nodes; // Outputs
-
-      for (const auto &n : nodes)
-        {
-          i3ipc::container_t *con = n.get ();
-          if (con->name == currentOutput && con->type == "output")
-            {
-              //std::cout << "Found output " << con->name << std::endl;
-              nodes = con->nodes;
-              break;
-            }
-        }
-
-      for (const auto &n : nodes)
-        {
-          i3ipc::container_t *con = n.get ();
-          if (con->name == "content")
-            {
-              //std::cout << "Found content " << con->id << std::endl;
-              nodes = con->nodes; // Workspaces
-              break;
-            }
-        }
-
-      //std::cout << "Looking for workspace " << currentWorkspace << std::endl;
-      for (const auto &n : nodes)
-        {
-          i3ipc::container_t *con = n.get ();
-          if (con->name == currentWorkspace && con->type == "workspace")
-            {
-              //std::cout << "Found workspace " << con->name << std::endl;
-              con = getWindowFromContainer (con);
-
-              if (con == nullptr)
-                break;
-
-              std::stringstream ss;
-              ss << "[con_id=" << con->id << "] focus";
-              //std::cout << ss.str () << std::endl;
-              conn.send_command (ss.str ());
-
-              return;
-            }
-        }
-
-      //std::cerr << "Whoops, didn't find a container to focus; current output " << currentOutput
-      //          << "; current workspace " << currentWorkspace << std::endl;
-
-      return;
-    }
-
-  if (signum != SIGHUP)
-    std::remove (pidfname);
+  unlink (pipefname);
 
   exit(0);
 }
 
+
+void handlePipeRead(char buf[])
+{
+  if (buf[0] == 'e')
+    exit(0);
+
+  // Parse workspace/output/any
+  // flw flo fl, ftw fto ft, fbw fbo fb
+
+  if (buf[0] == 'f')
+    {
+      if (buf[1] == 'l')
+        {
+          focusLastActive ();
+          return;
+        }
+      if (buf[1] != 't' && buf[1] != 'b')
+        return;
+
+      if (buf[2] == '\n')
+        {
+          focusTopBottom (currentOutput, currentWorkspace, buf[1] == 't');
+          return;
+        }
+
+      std::string arg (buf + 3, index (buf + 3, '\n') - (buf + 3));
+      //std::cout << "argstring: " << arg << std::endl;
+      if (buf[2] == 'o')
+        focusTopBottomOnOutput (arg, buf[1] == 't');
+      else if (buf[2] == 'w')
+        focusTopBottomOnWorkspace (arg, buf[1] == 't');
+    }
+}
+
+
+void handlePipe()
+{
+  int fd;
+  char buf[MAX_BUF];
+
+  fd = open (pipefname, O_WRONLY);
+  if (fd != -1)
+    {
+      write (fd, "e\n", 2);
+      close (fd);
+    }
+  mkfifo(pipefname, 0666);
+
+  while (true)
+    {
+      fd = open (pipefname, O_RDONLY);
+      read (fd, buf, MAX_BUF);
+      //printf ("Received: %s\n", buf);
+      close (fd);
+      handlePipeRead(buf);
+    }
+}
+
 int main (int argc, char *argv[])
 {
-  int pid = NULL;
-
   if (argc > 1)
      std::istringstream(argv[argc - 1]) >> delay;
   //std::cout << "delay: " << delay << std::endl;
 
-  // Quit without removing PID file, to be sent when another process takes over
   signal(SIGHUP, signalHandler);
-  // Focus last active window
-  signal(SIGUSR1, signalHandler);
-  signal(SIGUSR2, signalHandler);
   signal(SIGKILL, signalHandler);
   signal(SIGINT, signalHandler);
   signal(SIGTERM, signalHandler);
 
-  std::ifstream pidstream(pidfname);
-  if (pidstream && pidstream.is_open ())
-    {
-      pidstream >> pid;
-      if (pid > 0 && kill (pid, 0) == 0)
-        {
-          kill (pid, SIGHUP);
-          std::cerr << "SIGHUP pid " << pid << std::endl;
-        }
-      pidstream.close ();
-    }
+  std::thread pipeThread(handlePipe);
 
-  std::ofstream opidstream(pidfname, std::ios_base::out | std::ios_base::trunc);
-  pid = getpid ();
-  std::cout << getpid () << std::endl;
-  if (opidstream && opidstream.is_open ()) {
-      opidstream << pid;
-      opidstream.close ();
-    }
-  else
-    {
-      std::cerr << "Unable to write PID file." << std::endl;
-      return 74; // input/output error
-    }
-
+  //TODO re-enable
   conn.subscribe(i3ipc::ET_WINDOW | i3ipc::ET_WORKSPACE);
 
   // Handler of WINDOW EVENT

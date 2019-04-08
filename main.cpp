@@ -33,7 +33,8 @@ i3ipc::container_t *getWindowFromContainer(i3ipc::container_t *container, bool r
         container->nodes.reverse ();
       for (auto &node : container->nodes)
       {
-          i3ipc::container_t *con = getWindowFromContainer (node.get (), reversed);
+          i3ipc::container_t *con = node.get ();
+          con = getWindowFromContainer (con, reversed && con->layout == i3ipc::ContainerLayout::STACKED);
           if (con != nullptr)
             {
               //std::cout << "Looking at con id " << con->id << std::endl;

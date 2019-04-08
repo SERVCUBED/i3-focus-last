@@ -6,22 +6,60 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <thread>
+#include <algorithm>
 
 // Using https://github.com/drmgc/i3ipcpp
 #include <i3ipc++/ipc.hpp>
 #include <fstream>
 #include <tkPort.h>
 
-i3ipc::connection  conn;
-double next_evt = 0;
-uint64_t ids[] = {NULL, NULL};
-int focused_index = 0;
+i3ipc::connection conn;
 int delay = 200;
 std::string currentWorkspace;
 std::string currentOutput;
 const char *pipefname = "/tmp/i3-focus-last.pipe";
+uint64_t ids[] = {NULL, NULL};
+int focusedindex = 0;
+double next_evt = 0;
+
+typedef std::pair<std::string, uint64_t> pairtype;
+std::vector<pairtype> workspaceIdsMap;
 
 #define MAX_BUF 512
+
+std::list<uint64_t> *idsOnWorkspace(const std::string &workspaceName)
+{
+  std::list<uint64_t> t;
+  return std::for_each (workspaceIdsMap.begin (), workspaceIdsMap.end (), [&] (const pairtype &p) { return (p.first == workspaceName)? t.push_back (p.second) : t; });
+
+//  if (!workspaceIdsMap.count (workspaceName))
+//      workspaceIdsMap.insert (std::make_pair (workspaceName, new wIDs));
+//  return &workspaceIdsMap[workspaceName];
+}
+
+//void insertIDtoWorkspace(const std::string workspaceName, uint64_t id)
+//{
+//  std::list *ids = idsOnWorkspace (workspaceName);
+//  ids->remove (id);
+//  ids->push_front (id);
+//}
+//
+//uint64_t getLastFocusedOnWorkspace(const std::string workspaceName)
+//{
+//  std::list *ids = idsOnWorkspace (workspaceName);
+//  return ids->empty ()? NULL : ids->front();
+//}
+//
+//void removeFromOtherWorkspaces(const std::string workspaceName, uint64_t id)
+//{
+//  auto it = workspaceIdsMap.begin ();
+//  while (it != workspaceIdsMap.end ())
+//    {
+//      if (it->first != workspaceName)
+//        it->second.remove (id);
+//      it++;
+//    }
+//}
 
 i3ipc::container_t *getWindowFromContainer(i3ipc::container_t *container, bool reversed = false)
 {
@@ -47,12 +85,15 @@ i3ipc::container_t *getWindowFromContainer(i3ipc::container_t *container, bool r
 
 void focusLastActive()
 {
-  if (ids[!focused_index] == NULL)
+  if (ids[!focusedindex] == NULL)
     return;
+
+  std::list<uint64_t> *l = idsOnWorkspace (currentWorkspace);
+  uint64_t id = l->front ();
 
   std::stringstream ss;
   //std::cout << "last focused: " << ids[!focused_index] << std::endl;
-  ss << "[con_id=" << ids[!focused_index] << "] focus";
+  ss << "[con_id=" << ids[!focusedindex] << "] focus";
   //std::cout << ss.str () << std::endl;
   conn.send_command (ss.str ());
 }
@@ -217,6 +258,7 @@ void handlePipe()
     }
 }
 
+
 int main (int argc, char *argv[])
 {
   if (argc > 1)
@@ -241,9 +283,9 @@ int main (int argc, char *argv[])
       if (ev.container) {
           uint64_t id = ev.container->id;
           double time = std::clock ();
-          if (time > next_evt || ids[!focused_index] == id)
-            focused_index = !focused_index;
-          ids[focused_index] = id;
+          if (time > next_evt || ids[!focusedindex] == id)
+        focusedindex = !focusedindex;
+          ids[focusedindex] = id;
           next_evt = time + delay;
           //std::cout << "\tSwitched to #" << ev.container->id << " - " << ev.container->name << ' - ' << ev.container->window_properties.window_role << std::endl;
         }

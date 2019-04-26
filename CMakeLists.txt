@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(i3_focus_last)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 
 add_subdirectory(i3ipc++)
 
@@ -11,4 +11,4 @@ link_libraries(${I3IPCpp_LIBRARIES})
 
 SET(CMAKE_CXX_FLAGS -pthread)
 
-add_executable(i3_focus_last main.cpp)
+add_executable(i3_focus_last main.cpp background.cpp background.h util.h)

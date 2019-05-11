@@ -5,9 +5,9 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_subdirectory(i3ipc++)
 
-include_directories(${I3IPCpp_INCLUDE_DIRS})
-link_directories(${I3IPCpp_LIBRARY_DIRS})
-link_libraries(${I3IPCpp_LIBRARIES})
+include_directories(${I3IPCPP_INCLUDE_DIRS})
+link_directories(${I3IPCPP_LIBRARY_DIRS})
+link_libraries(${I3IPCPP_LIBRARIES})
 
 SET(CMAKE_CXX_FLAGS -pthread)
 

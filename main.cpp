@@ -1,7 +1,6 @@
 #include <iostream>
 #include <fcntl.h>
 #include <cstring>
-#include "util.h"
 #include "background.h"
 
 using namespace i3_focus_last;

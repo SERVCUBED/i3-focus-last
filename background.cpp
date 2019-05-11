@@ -128,6 +128,11 @@ namespace i3_focus_last
 
     void background::focusConID (uint64_t id)
     {
+      sendCommandConID (id, "focus");
+    }
+
+    void background::sendCommandConID (uint64_t id, const char *command)
+    {
       if (id == 0)
         {
           ERROR_MSG ("Container ID is zero");
@@ -135,7 +140,7 @@ namespace i3_focus_last
         }
 
       std::stringstream cmds;
-      cmds << "[con_id=" << id << "] focus";
+      cmds << "[con_id=" << id << "] " << command;
 
       DEBUG_MSG ("Sending command: " << cmds.str ());
       conn.send_command (cmds.str ());
@@ -202,7 +207,10 @@ namespace i3_focus_last
           if (con->name == workspaceName && con->type == "workspace")
             {
               DEBUG_MSG ("Found workspace " << con->name);
-              con = getWindowFromContainer (con, !top);
+              if (!con->nodes.empty())
+                con = getWindowFromContainer (con->nodes.begin ()->get (), !top);
+              else
+                break;
 
               if (con == nullptr)
                 break;
@@ -249,6 +257,8 @@ namespace i3_focus_last
         {
           if (buf[1] != 't' && buf[1] != 'b' && buf[1] != 'l')
             return;
+
+          next_evt = 0;
 
           if (buf[2] == '\n')
             {
@@ -320,7 +330,7 @@ namespace i3_focus_last
       conn.subscribe (i3ipc::ET_WINDOW | i3ipc::ET_WORKSPACE);
 
       // Handler of WINDOW EVENT
-      conn.signal_window_event.connect ([this] (const i3ipc::window_event_t &ev)
+      conn.on_window_event = [this] (const i3ipc::window_event_t &ev)
                                         {
                                             DEBUG_MSG ("window_event: " << (char) ev.type);
                                             if (!ev.container)
@@ -336,7 +346,7 @@ namespace i3_focus_last
                                                 if (time < next_evt
                                                     && (idsMap.end () - 1)->first == currentWorkspaceNum)
                                                   {
-                                                    DEBUG_MSG ("Replacing");
+                                                    DEBUG_MSG ("Replacing, time left: " << (next_evt - time));
                                                     (idsMap.end ()
                                                      - 1)->second = id; // insert after last item on current WS
                                                   }
@@ -344,6 +354,11 @@ namespace i3_focus_last
                                                   idsMap.emplace_back (currentWorkspaceNum, id);
                                                 next_evt = time + delay;
                                                 //std::cout << "\tSwitched to #" << ev.container->id << " - " << ev.container->name << ' - ' << ev.container->window_properties.window_role << std::endl;
+                                              }
+                                            else if (ev.type == i3ipc::WindowEventType::NEW && ev.container->floating == i3ipc::FloatingMode::AUTO_OFF && ev.container->geometry.width < maxAutoFloatW && ev.container->geometry.height < maxAutoFloatH)
+                                              {
+                                                DEBUG_MSG ("auto-floating container " << ev.container->id);
+                                                sendCommandConID (ev.container->id, "floating enable");
                                               }
                                             else if (ev.type == i3ipc::WindowEventType::CLOSE)
                                               {
@@ -353,10 +368,10 @@ namespace i3_focus_last
                                               {
                                                 winSetWorkspace (ev.container->id, currentWorkspaceNum);
                                               }
-                                        });
+                                        };
 
       // Handler of workspace_event
-      conn.signal_workspace_event.connect ([this] (const i3ipc::workspace_event_t &ev)
+      conn.on_workspace_event = [this] (const i3ipc::workspace_event_t &ev)
                                            {
                                                DEBUG_MSG ("workspace_event: " << (char) ev.type);
                                                if (ev.type != i3ipc::WorkspaceEventType::FOCUS)
@@ -367,7 +382,7 @@ namespace i3_focus_last
 
                                                workspaceMap[currentWorkspaceNum] = currentWorkspace;
                                                outputMap[currentOutput] = currentWorkspaceNum;
-                                           });
+                                           };
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"

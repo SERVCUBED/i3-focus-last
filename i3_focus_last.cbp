@@ -34,10 +34,8 @@
 				<Option type="1"/>
 				<Option compiler="gcc"/>
 				<Compiler>
-					<Add directory="/usr/include/sigc++-2.0"/>
-					<Add directory="/usr/lib/sigc++-2.0/include"/>
-					<Add directory="/home/servc/git/my/i3-focus-last/i3ipc++/3rd/auss/include"/>
 					<Add directory="/home/servc/git/my/i3-focus-last/i3ipc++/include"/>
+					<Add directory="/home/servc/git/my/i3-focus-last/i3ipc++/3rd/auss/include"/>
 					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../include/c++/8.2.1"/>
 					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../include/c++/8.2.1/x86_64-pc-linux-gnu"/>
 					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../include/c++/8.2.1/backward"/>
@@ -60,10 +58,8 @@
 				<Option type="1"/>
 				<Option compiler="gcc"/>
 				<Compiler>
-					<Add directory="/usr/include/sigc++-2.0"/>
-					<Add directory="/usr/lib/sigc++-2.0/include"/>
-					<Add directory="/home/servc/git/my/i3-focus-last/i3ipc++/3rd/auss/include"/>
 					<Add directory="/home/servc/git/my/i3-focus-last/i3ipc++/include"/>
+					<Add directory="/home/servc/git/my/i3-focus-last/i3ipc++/3rd/auss/include"/>
 					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../include/c++/8.2.1"/>
 					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../include/c++/8.2.1/x86_64-pc-linux-gnu"/>
 					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../include/c++/8.2.1/backward"/>
@@ -96,12 +92,8 @@
 				<Option type="2"/>
 				<Option compiler="gcc"/>
 				<Compiler>
-					<Add option="-DI3IPC_BUILD_DATETIME=&quot;2019-04-26 13:48:24&quot;"/>
-					<Add directory="/usr/include/sigc++-2.0"/>
-					<Add directory="/usr/lib/sigc++-2.0/include"/>
 					<Add directory="/home/servc/git/my/i3-focus-last/i3ipc++/3rd/auss/include"/>
 					<Add directory="/home/servc/git/my/i3-focus-last/i3ipc++/include"/>
-					<Add directory="/home/servc/git/my/i3-focus-last/i3ipc++/include/i3ipc++"/>
 					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../include/c++/8.2.1"/>
 					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../include/c++/8.2.1/x86_64-pc-linux-gnu"/>
 					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../include/c++/8.2.1/backward"/>
@@ -124,12 +116,8 @@
 				<Option type="2"/>
 				<Option compiler="gcc"/>
 				<Compiler>
-					<Add option="-DI3IPC_BUILD_DATETIME=&quot;2019-04-26 13:48:24&quot;"/>
-					<Add directory="/usr/include/sigc++-2.0"/>
-					<Add directory="/usr/lib/sigc++-2.0/include"/>
 					<Add directory="/home/servc/git/my/i3-focus-last/i3ipc++/3rd/auss/include"/>
 					<Add directory="/home/servc/git/my/i3-focus-last/i3ipc++/include"/>
-					<Add directory="/home/servc/git/my/i3-focus-last/i3ipc++/include/i3ipc++"/>
 					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../include/c++/8.2.1"/>
 					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../include/c++/8.2.1/x86_64-pc-linux-gnu"/>
 					<Add directory="/usr/lib/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../include/c++/8.2.1/backward"/>
@@ -151,6 +139,15 @@
 		</Unit>
 		<Unit filename="/home/servc/git/my/i3-focus-last/background.h">
 			<Option target="i3_focus_last"/>
+		</Unit>
+		<Unit filename="/home/servc/git/my/i3-focus-last/i3ipc++/3rd/auss/include/auss.hpp">
+			<Option target="i3ipc++"/>
+		</Unit>
+		<Unit filename="/home/servc/git/my/i3-focus-last/i3ipc++/include/i3ipc++/ipc-util.hpp">
+			<Option target="i3ipc++"/>
+		</Unit>
+		<Unit filename="/home/servc/git/my/i3-focus-last/i3ipc++/include/i3ipc++/ipc.hpp">
+			<Option target="i3ipc++"/>
 		</Unit>
 		<Unit filename="/home/servc/git/my/i3-focus-last/i3ipc++/src/ipc-util.cpp">
 			<Option target="i3ipc++"/>

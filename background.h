@@ -24,7 +24,9 @@ namespace i3_focus_last
       std::vector<std::pair<int, uint64_t>> idsMap;
       std::map<int, std::string> workspaceMap;
       std::map<std::string, int> outputMap;
-      int delay = 200;
+      int delay = 50;
+      int maxAutoFloatH = 500;
+      int maxAutoFloatW = 700;
       std::string currentWorkspace;
       int currentWorkspaceNum;
       std::string currentOutput;
@@ -50,6 +52,8 @@ namespace i3_focus_last
       i3ipc::container_t *getWindowFromContainer (i3ipc::container_t *container, bool reversed = false);
 
       void focusConID (uint64_t id);
+
+      void sendCommandConID (uint64_t id, const char *command);
 
       void focusLastActive ();
 

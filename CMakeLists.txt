@@ -9,6 +9,6 @@ include_directories(${I3IPCPP_INCLUDE_DIRS})
 link_directories(${I3IPCPP_LIBRARY_DIRS})
 link_libraries(${I3IPCPP_LIBRARIES})
 
-SET(CMAKE_CXX_FLAGS -pthread)
+SET(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS}-pthread)
 
 add_executable(i3_focus_last main.cpp background.cpp background.h util.h)

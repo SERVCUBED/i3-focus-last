@@ -394,9 +394,16 @@ namespace i3_focus_last
                                                  return;
 
                                                DBG_WORKSPACE ("Switched from " << ev.old->num);
+                                               if (ev.current->num == currentWorkspaceNum)
+                                                 {
+                                                   DBG_WORKSPACE ("Duplicate workspace event");
+                                                   return;
+                                                 }
                                                currentWorkspace = ev.current->name;
                                                currentWorkspaceNum = ev.current->num;
                                                currentOutput = ev.current->output;
+//                                               if (idsMap.size () > 1 && idsMap.rbegin ()->first == ev.old->num)
+//                                                 idsMap.rbegin ()->first = currentWorkspaceNum;
 
                                                workspaceMap[currentWorkspaceNum] = currentWorkspace;
                                                outputMap[currentOutput] = currentWorkspaceNum;

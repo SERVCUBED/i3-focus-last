@@ -3,6 +3,25 @@
 namespace i3_focus_last
 {
 
+    void background::winSetLastFocused (uint64_t id)
+    {
+      DBG_WINDOW ("id " << id);
+      double time = std::clock ();
+//          if (time > next_evt || idsMap.end ()->first == currentWorkspaceNum)
+//            focused_index = !focused_index;
+      winRemoveIfExists (id);
+      if (time < next_evt
+          && (idsMap.end () - 1)->first == currentWorkspaceNum)
+        {
+          DBG_WINDOW ("Replacing, time left: " << (next_evt - time));
+          (idsMap.end ()
+           - 1)->second = id; // insert after last item on current WS
+        }
+      else
+        idsMap.emplace_back (currentWorkspaceNum, id);
+      next_evt = time + delay;
+    }
+
     void background::winRemoveIfExists (uint64_t id)
     {
       for (auto i = idsMap.begin (); i != idsMap.end (); i++)
@@ -234,6 +253,36 @@ namespace i3_focus_last
       focusTopBottom (outputFromWorkspaceName (workspaceName), workspaceName, top);
     }
 
+    void background::writeToPath (const char *fname, uint64_t id)
+    {
+      int fd = open (fname, O_WRONLY | O_CREAT | O_TRUNC | O_NONBLOCK, S_IWUSR | S_IRUSR | S_IRGRP), len = 0;
+      ERROR_MSG("buffer size: " << sizeof (uint64_t)*4);
+      char content[sizeof (uint64_t)*4];
+      if (unlikely (fd == -1))
+        {
+          ERROR_MSG ("Failed to write to file " << fname);
+          return;
+        }
+
+      len = sprintf (content, "%lu", id);;
+
+      if (unlikely(len == 0))
+        {
+          ERROR_MSG ("Failed to parse string");
+          return;
+        }
+
+      ssize_t written = write (fd, content, len);
+      close (fd);
+      if (written == -1)
+        {
+          ERROR_MSG ("Error writing to file");
+          return;;
+        }
+
+      DBG_BASIC ("Written: " << (int)written);
+    }
+
     void background::signalHandler (int signum)
     {
       //std::cout << "Interrupt signal (" << signum << ") received.\n";
@@ -251,9 +300,10 @@ namespace i3_focus_last
         exit (0);
 
       // Parse workspace/output/any
-      // flw flo fl, ftw fto ft, fbw fbo fb, d0 d1
+      // flw flo fl, ftw fto ft, fbw fbo fb, gl glo; glw;, d0 d1
+      // Get last: gl[o<output>|w<workspace>];<receiving socket path>
 
-      if (buf[0] == 'f')
+      if (buf[0] == 'f' || buf[0] == 'g')
         {
           if (buf[1] != 't' && buf[1] != 'b' && buf[1] != 'l')
             return;
@@ -266,6 +316,56 @@ namespace i3_focus_last
                 focusLastActive ();
               else
                 focusTopBottom (currentOutput, currentWorkspace, buf[1] == 't');
+              return;
+            }
+
+          if (buf[0] == 'g')
+            {
+              char *arg = index (buf, ':');
+              if (arg == nullptr)
+                {
+                  ERROR_MSG("File name required");
+                  return;;
+                }
+
+              u_int64_t  id;
+              const char *delim = "\n";
+              char *fname = strtok(arg + 1 , delim);
+              DBG_CMD("fname: " << fname);
+
+              if (buf[2] == ':')
+                id = (idsMap.end()-2)->second;
+              else
+                {
+                  const char *delim2 = ":";
+                  arg = strtok(buf + 3, delim2);
+                  DBG_CMD("arg: " << arg);
+
+                  int wsnum = 0;
+                  if (buf[2] == 'w')
+                    wsnum = workspaceNumFromName (arg);
+                  else if (buf[2] == 'o')
+                    {
+                      if (arg == currentOutput)
+                        wsnum = currentWorkspaceNum;
+                      else
+                        wsnum = workspaceNumFromOutput (arg);
+                    }
+                  DBG_CMD("wsnum: " << wsnum);
+                  if (wsnum == 0)
+                    {
+                      ERROR_MSG("Invalid workspace or output argument");
+                      return;
+                    }
+                  id = winGetLastOnWorkspace (wsnum);
+                }
+              DBG_CMD("got last id: " << id);
+              if (id < 1024)
+                {
+                  ERROR_MSG("Value of ID  seems invalid");
+                  return; // i3's ID is technically a pointer
+                }
+              writeToPath(fname, id);
               return;
             }
 
@@ -353,21 +453,8 @@ namespace i3_focus_last
                                             if (ev.type == i3ipc::WindowEventType::FOCUS)
                                               {
                                                 uint64_t id = ev.container->id;
-                                                DBG_WINDOW("id " << id);
+                                                winSetLastFocused(id);
                                                 DBG_PRIVATE ("Switched to #" << ev.container->id << " - " << ev.container->name << " - " << ev.container->window_properties.window_role << std::endl);
-//          if (time > next_evt || idsMap.end ()->first == currentWorkspaceNum)
-//            focused_index = !focused_index;
-                                                winRemoveIfExists (id);
-                                                if (time < next_evt
-                                                    && (idsMap.end () - 1)->first == currentWorkspaceNum)
-                                                  {
-                                                    DEBUG_MSG ("Replacing, time left: " << (next_evt - time));
-                                                    (idsMap.end ()
-                                                     - 1)->second = id; // insert after last item on current WS
-                                                  }
-                                                else
-                                                  idsMap.emplace_back (currentWorkspaceNum, id);
-                                                next_evt = time + delay;
                                               }
                                             else if (ev.type == i3ipc::WindowEventType::NEW && ev.container->floating == i3ipc::FloatingMode::AUTO_OFF && ev.container->geometry.width < maxAutoFloatW && ev.container->geometry.height < maxAutoFloatH)
                                               {

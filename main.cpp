@@ -8,7 +8,7 @@ using namespace i3_focus_last;
 void handleCheckAlreadyRunning(int argc, char *argv[])
 {
   DEBUG_MSG ("Starting");
-  bool iscmd = likely (argc > 1 && argv[1][0] == 'f' | argv[1][0] == 'd');
+  bool iscmd = likely (argc > 1 && (argv[1][0] == 'f' || argv[1][0] == 'd' || argv[1][0] == 'g'));
   DEBUG_MSG ("isCmd: " << iscmd);
 
   // file exists and is being read from - write cmd

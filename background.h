@@ -7,7 +7,7 @@
 #include <sys/stat.h>
 #include <thread>
 #include <fstream>
-#include <strings.h>
+#include <cstring>
 #include <map>
 #include "util.h"
 
@@ -25,13 +25,15 @@ namespace i3_focus_last
       std::map<int, std::string> workspaceMap;
       std::map<std::string, int> outputMap;
       int delay = 50;
-      int maxAutoFloatH = 500;
+      int maxAutoFloatH = 600;
       int maxAutoFloatW = 700;
       std::string currentWorkspace;
       int currentWorkspaceNum;
       std::string currentOutput;
 
 #define MAX_BUF 512
+
+      void winSetLastFocused (uint64_t id);
 
       void winRemoveIfExists (uint64_t id);
 

@@ -9,7 +9,7 @@ namespace i3_focus_last
         {
           if (i->second == id)
             {
-              DEBUG_MSG ("Exists. Removing " << id);
+              DBG_WINDOW ("Exists. Removing " << id);
               idsMap.erase (i);
               return;
             }
@@ -33,7 +33,7 @@ namespace i3_focus_last
     {
       // Skip the 1st. Dont want most recent
       int skip = WSNum == currentWorkspaceNum;
-      DEBUG_MSG ("Getting last on workspace " << WSNum << " skip? " << skip);
+      DBG_BASIC("Getting last on workspace " << WSNum << " skip? " << skip);
       for (auto i = idsMap.rbegin (); i != idsMap.rend (); i++)
         if (i->first == WSNum && (!skip || --skip))
           return i->second;
@@ -104,7 +104,7 @@ namespace i3_focus_last
     {
       //if (container->xwindow_id != NULL)
       //  std::cout << "xwindow_id " << container->xwindow_id << std::endl;
-      DEBUG_MSG ("con id " << container->id << " reversed? " << reversed << " layout "
+      DBG_BASIC("con id " << container->id << " reversed? " << reversed << " layout "
                            << static_cast<char>(container->layout));
       if (!container->nodes.empty ())
         {
@@ -120,7 +120,7 @@ namespace i3_focus_last
                   //std::cout << "Looking at con id " << con->id << std::endl;
                   return con;
                 }
-              DEBUG_MSG ("Container null. Backing up one level");
+              DBG_BASIC("Container null. Backing up one level");
             }
         }
       return (container->xwindow_id != 0) ? container : nullptr;
@@ -142,7 +142,7 @@ namespace i3_focus_last
       std::stringstream cmds;
       cmds << "[con_id=" << id << "] " << command;
 
-      DEBUG_MSG ("Sending command: " << cmds.str ());
+      DBG_CMD ("Sending command: " << cmds.str ());
       conn.send_command (cmds.str ());
     }
 
@@ -183,7 +183,7 @@ namespace i3_focus_last
           i3ipc::container_t *con = n.get ();
           if (con->name == outputName && con->type == "output")
             {
-              DEBUG_MSG ("Found output " << con->name);
+              DBG_BASIC ("Found output " << con->name);
               nodes = con->nodes;
               break;
             }
@@ -194,7 +194,7 @@ namespace i3_focus_last
           i3ipc::container_t *con = n.get ();
           if (con->name == "content")
             {
-              DEBUG_MSG ("Found content " << con->id);
+              DBG_BASIC ("Found content " << con->id);
               nodes = con->nodes; // Workspaces
               break;
             }
@@ -206,7 +206,7 @@ namespace i3_focus_last
           i3ipc::container_t *con = n.get ();
           if (con->name == workspaceName && con->type == "workspace")
             {
-              DEBUG_MSG ("Found workspace " << con->name);
+              DBG_BASIC ("Found workspace " << con->name);
               if (!con->nodes.empty())
                 con = getWindowFromContainer (con->nodes.begin ()->get (), !top);
               else
@@ -246,7 +246,7 @@ namespace i3_focus_last
 
     void background::handlePipeRead (char buf[])
     {
-      DEBUG_MSG ("Command: " << buf);
+      DBG_CMD ("Command: " << buf);
       if (buf[0] == 'e')
         exit (0);
 
@@ -270,7 +270,7 @@ namespace i3_focus_last
             }
 
           std::string arg (buf + 3, index (buf + 3, '\n') - (buf + 3));
-          DEBUG_MSG ("argstring: " << arg);
+          DBG_CMD ("argstring: " << arg);
 
           if (buf[1] == 'l')
             {
@@ -288,8 +288,13 @@ namespace i3_focus_last
 #if DEBUG
       else if (buf[0] == 'd')
         {
-          isDebug = buf[1] == '1';
-          std::cout << "Set debug mode " << isDebug << std::endl;
+          isDebug = std::stoi (buf+1);
+          if (isDebug > DBG_MAX_LEVEL)
+            {
+              ERROR_MSG ("Invalid debug level: " << (int)isDebug);
+              isDebug = 15;
+            }
+          std::cout << "Set debug mode " << (int)isDebug << std::endl;
         }
 #endif
     }
@@ -332,14 +337,24 @@ namespace i3_focus_last
       // Handler of WINDOW EVENT
       conn.on_window_event = [this] (const i3ipc::window_event_t &ev)
                                         {
-                                            DEBUG_MSG ("window_event: " << (char) ev.type);
+                                            DBG_WINDOW ("window_event: " << (char) ev.type);
                                             if (!ev.container)
                                               return;
+                                            DBG_PRIVATE ("ID: " << ev.container->id << " (i3's; X11's - " << ev.container->xwindow_id << ")\n"
+                                                   << "name = \"" << ev.container->name << "\"\n"
+                                                   << "type = \"" << ev.container->type << "\"\n"
+                                                   << "class = \"" << ev.container->window_properties.xclass << "\"\n"
+                                                   << "border = \"" << ev.container->border_raw << "\"\n"
+                                                   << "current_border_width = " << ev.container->current_border_width << "\n"
+                                                   << "layout = \"" << ev.container->layout_raw << "\"\n"
+                                                   << "percent = " << ev.container->percent << "\n"
+                                                   << ((ev.container->urgent)? "urgent" : "")
+                                                   << ((ev.container->focused)? "focused" : ""));
                                             if (ev.type == i3ipc::WindowEventType::FOCUS)
                                               {
                                                 uint64_t id = ev.container->id;
-                                                DEBUG_MSG ("id " << id);
-                                                double time = std::clock ();
+                                                DBG_WINDOW("id " << id);
+                                                DBG_PRIVATE ("Switched to #" << ev.container->id << " - " << ev.container->name << " - " << ev.container->window_properties.window_role << std::endl);
 //          if (time > next_evt || idsMap.end ()->first == currentWorkspaceNum)
 //            focused_index = !focused_index;
                                                 winRemoveIfExists (id);
@@ -353,19 +368,20 @@ namespace i3_focus_last
                                                 else
                                                   idsMap.emplace_back (currentWorkspaceNum, id);
                                                 next_evt = time + delay;
-                                                //std::cout << "\tSwitched to #" << ev.container->id << " - " << ev.container->name << ' - ' << ev.container->window_properties.window_role << std::endl;
                                               }
                                             else if (ev.type == i3ipc::WindowEventType::NEW && ev.container->floating == i3ipc::FloatingMode::AUTO_OFF && ev.container->geometry.width < maxAutoFloatW && ev.container->geometry.height < maxAutoFloatH)
                                               {
-                                                DEBUG_MSG ("auto-floating container " << ev.container->id);
+                                                DBG_WINDOW ("auto-floating container " << ev.container->id << " of mode " << (int)ev.container->floating);
                                                 sendCommandConID (ev.container->id, "floating enable");
                                               }
                                             else if (ev.type == i3ipc::WindowEventType::CLOSE)
                                               {
+                                                DBG_WINDOW ("Closed " << ev.container->id);
                                                 winRemoveIfExists (ev.container->id);
                                               }
                                             else if (ev.type == i3ipc::WindowEventType::MOVE)
                                               {
+                                                DBG_WINDOW ("Setting to workspace " << currentWorkspace);
                                                 winSetWorkspace (ev.container->id, currentWorkspaceNum);
                                               }
                                         };
@@ -373,9 +389,11 @@ namespace i3_focus_last
       // Handler of workspace_event
       conn.on_workspace_event = [this] (const i3ipc::workspace_event_t &ev)
                                            {
-                                               DEBUG_MSG ("workspace_event: " << (char) ev.type);
+                                               DBG_WORKSPACE ("workspace_event: " << (char) ev.type << " number: " << ev.current->num);
                                                if (ev.type != i3ipc::WorkspaceEventType::FOCUS)
                                                  return;
+
+                                               DBG_WORKSPACE ("Switched from " << ev.old->num);
                                                currentWorkspace = ev.current->name;
                                                currentWorkspaceNum = ev.current->num;
                                                currentOutput = ev.current->output;

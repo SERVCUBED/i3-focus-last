@@ -57,7 +57,7 @@ void handleCheckAlreadyRunning(int argc, char *argv[])
 int main (int argc, char *argv[], char** envp)
 {
 #if DEBUG
-  if (isatty (STDOUT_FILENO)) isDebug = true;
+  if (isatty (STDOUT_FILENO)) isDebug = 15u;
 #endif
   signal(SIGPIPE, SIG_IGN);
   handleCheckAlreadyRunning (argc, argv);

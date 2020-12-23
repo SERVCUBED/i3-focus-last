@@ -299,24 +299,24 @@ namespace i3_focus_last
 #endif
     }
 
-    void background::handlePipe ()
+    [[noreturn]] void background::handlePipe ()
     {
       int fd;
       char buf[MAX_BUF];
+      ssize_t len;
+      memset (buf, 0, MAX_BUF);
+      buf[MAX_BUF - 2] = '\n';
 
       mkfifo (pipefname, 0666);
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wmissing-noreturn"
       while (true)
         {
           fd = open (pipefname, O_RDONLY);
-          read (fd, buf, MAX_BUF);
-          //printf ("Received: %s\n", buf);
+          len = read (fd, buf, MAX_BUF);
           close (fd);
           handlePipeRead (buf);
+          memset (buf, 0, len);
         }
-#pragma clang diagnostic pop
     }
 
     void background::run (int argc, char **argv)

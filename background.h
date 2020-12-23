@@ -67,9 +67,11 @@ namespace i3_focus_last
 
       void focusTopBottomOnWorkspace (const std::string &workspaceName, bool top = true);
 
+      static void writeToPath (const char *fname, u_int64_t  id);
+
       void handlePipeRead (char buf[]);
 
-      void handlePipe ();
+      [[noreturn]] void handlePipe ();
 
      public:
       static void signalHandler (int signum);

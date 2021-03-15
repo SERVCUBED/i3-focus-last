@@ -1,3 +1,4 @@
 [submodule "i3ipc++"]
 	path = i3ipc++
 	url = https://github.com/SERVCUBED/i3ipcpp.git
+	branch = master

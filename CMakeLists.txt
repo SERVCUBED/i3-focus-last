@@ -2,6 +2,12 @@ cmake_minimum_required(VERSION 3.10)
 project(i3-focus-last)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+if (CMAKE_BUILD_TYPE STREQUAL "")
+    set(CMAKE_BUILD_TYPE "Release")
+    message("Using default \"Release\" build type as none was specified.")
+endif()
 
 add_subdirectory(i3ipc++)
 

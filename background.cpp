@@ -407,11 +407,22 @@ namespace i3_focus_last
       memset (buf, 0, MAX_BUF);
       buf[MAX_BUF - 2] = '\n';
 
-      mkfifo (pipefname, 0666);
+      fd = mkfifo (pipefname, 0666);
+
+      if (fd == -1)
+        {
+            ERROR_MSG ("Unable to create socket \"" << pipefname << "\". Errorno: " << errno);
+            exit (EXIT_FAILURE);
+        }
 
       while (true)
         {
           fd = open (pipefname, O_RDONLY);
+          if (fd == -1)
+            {
+              ERROR_MSG ("Unable to open socket \"" << pipefname << "\". Errorno: " << errno);
+              exit (EXIT_FAILURE);
+            }
           len = read (fd, buf, MAX_BUF);
           close (fd);
           handlePipeRead (buf);

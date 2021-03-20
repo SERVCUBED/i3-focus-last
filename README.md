@@ -10,20 +10,20 @@ Quickly switch to the last focused window with i3.
 
 ## Usage:
 
-The application responds to the commands written to the pipe `/tmp/i3-focus-last.pipe`. Use your
+The application responds to the commands written to the pipe `/run/user/$UID/i3-focus-last.sock`. Use your
 favourite keybinding software or i3's own configuration files to bind a key to:
 
     // Switch to last focused window
-    echo fl > /tmp/i3-focus-last.pipe
+    echo fl > /run/user/$UID/i3-focus-last.sock
 
     // Switch to first window in the current workspace
-    echo ft > /tmp/i3-focus-last.pipe
+    echo ft > /run/user/$UID/i3-focus-last.sock
 
     // Switch to first window on the output DP-2
-    echo ftoDP-2 > /tmp/i3-focus-last.pipe
+    echo ftoDP-2 > /run/user/$UID/i3-focus-last.sock
 
     // Switch to last window on the workspace "Home"
-    echo fbwHome > /tmp/i3-focus-last.pipe
+    echo fbwHome > /run/user/$UID/i3-focus-last.sock
 
 Alternatively, if `i3-focus-last` is already running, you can execute the same `i3-focus-last` binary, but with your command as the first argument. If the daemon is not already running, the command will exit with failure status.
 

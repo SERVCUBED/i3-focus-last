@@ -56,6 +56,10 @@ void handleCheckAlreadyRunning(int argc, char *argv[])
 
 int main (int argc, char *argv[], char** envp)
 {
+  uid_t  uid;
+  uid = getuid();
+  sprintf (pipefname, "/run/user/%d/i3-focus-last.sock", uid);
+
 #if DEBUG
   if (isatty (STDOUT_FILENO) && argc > 1 && argv[1][0] == '-' && argv[1][1] == 'd')
     {
@@ -64,6 +68,7 @@ int main (int argc, char *argv[], char** envp)
       argv++;
     }
 #endif
+  DEBUG_MSG("Using pipe: " << pipefname);
   signal(SIGPIPE, SIG_IGN);
   handleCheckAlreadyRunning (argc, argv);
   signal(SIGPIPE, SIG_DFL);

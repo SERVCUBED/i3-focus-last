@@ -409,7 +409,7 @@ namespace i3_focus_last
 
       fd = mkfifo (pipefname, 0666);
 
-      if (fd == -1)
+      if (fd == -1 && errno != EEXIST)
         {
             ERROR_MSG ("Unable to create socket \"" << pipefname << "\". Errorno: " << errno);
             exit (EXIT_FAILURE);

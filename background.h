@@ -76,6 +76,8 @@ namespace i3_focus_last
       [[noreturn]] void handlePipe ();
 
      public:
+      void handle_window_event (const i3ipc::window_event_t &ev);
+      void handle_workspace_event (const i3ipc::workspace_event_t &ev);
       static void signalHandler (int signum);
       void run (int argc, char *argv[]);
     };

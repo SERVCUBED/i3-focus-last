@@ -1,11 +1,10 @@
 #include <iostream>
 #include <fcntl.h>
-#include <cstring>
 #include "background.h"
 
 using namespace i3_focus_last;
 
-void handleCheckAlreadyRunning(int argc, char *argv[])
+void handleCheckAlreadyRunning(int &argc, char *argv[])
 {
   DEBUG_MSG ("Starting");
   bool iscmd = likely (argc > 1 && (argv[1][0] == 'f' || argv[1][0] == 'd' || argv[1][0] == 'g'));
@@ -54,10 +53,9 @@ void handleCheckAlreadyRunning(int argc, char *argv[])
     exit (EXIT_SUCCESS);
 }
 
-int main (int argc, char *argv[], char** envp)
+int main (int argc, char *argv[])
 {
-  uid_t  uid;
-  uid = getuid();
+  auto uid = getuid();
   sprintf (pipefname, "/run/user/%d/i3-focus-last.sock", uid);
 
 #if DEBUG

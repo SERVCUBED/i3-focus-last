@@ -401,13 +401,12 @@ namespace i3_focus_last
 
     [[noreturn]] void background::handlePipe ()
     {
-      int fd;
       char buf[MAX_BUF];
       ssize_t len;
       memset (buf, 0, MAX_BUF);
       buf[MAX_BUF - 2] = '\n';
 
-      fd = mkfifo (pipefname, 0666);
+      auto fd = mkfifo (pipefname, 0666);
 
       if (fd == -1 && errno != EEXIST)
         {
@@ -424,10 +423,79 @@ namespace i3_focus_last
               exit (EXIT_FAILURE);
             }
           len = read (fd, buf, MAX_BUF);
-          close (fd);
+          if (len == -1)
+            {
+              ERROR_MSG ("Error reading from socket \"" << pipefname << "\". Errorno: " << errno);
+              continue;
+            }
+          if (close (fd) == -1)
+            {
+              ERROR_MSG ("Error closing file descriptor for pipe. Errorno: " << errno);
+              continue;
+            }
           handlePipeRead (buf);
           memset (buf, 0, len);
         }
+    }
+
+    void background::handle_window_event (const i3ipc::window_event_t &ev)
+    {
+      DBG_WINDOW ("window_event: " << (char) ev.type);
+      if (!ev.container)
+        return;
+      DBG_PRIVATE ("ID: " << ev.container->id << " (i3's; X11's - " << ev.container->xwindow_id << ")\n"
+                          << "name = \"" << ev.container->name << "\"\n"
+                          << "type = \"" << ev.container->type << "\"\n"
+                          << "class = \"" << ev.container->window_properties.xclass << "\"\n"
+                          << "border = \"" << ev.container->border_raw << "\"\n"
+                          << "current_border_width = " << ev.container->current_border_width << "\n"
+                          << "layout = \"" << ev.container->layout_raw << "\"\n"
+                          << "percent = " << ev.container->percent << "\n"
+                          << ((ev.container->urgent)? "urgent" : "")
+                          << ((ev.container->focused)? "focused" : ""));
+      if (ev.type == i3ipc::WindowEventType::FOCUS)
+      {
+        uint64_t id = ev.container->id;
+        winSetLastFocused(id);
+        DBG_PRIVATE ("Switched to #" << ev.container->id << " - " << ev.container->name << " - " << ev.container->window_properties.window_role << std::endl);
+      }
+      else if (ev.type == i3ipc::WindowEventType::NEW && ev.container->floating == i3ipc::FloatingMode::AUTO_OFF && ev.container->geometry.width < maxAutoFloatW && ev.container->geometry.height < maxAutoFloatH)
+      {
+        DBG_WINDOW ("auto-floating container " << ev.container->id << " of mode " << (int)ev.container->floating);
+        sendCommandConID (ev.container->id, "floating enable");
+      }
+      else if (ev.type == i3ipc::WindowEventType::CLOSE)
+      {
+        DBG_WINDOW ("Closed " << ev.container->id);
+        winRemoveIfExists (ev.container->id);
+      }
+      else if (ev.type == i3ipc::WindowEventType::MOVE)
+      {
+        DBG_WINDOW ("Setting to workspace " << currentWorkspace);
+        winSetWorkspace (ev.container->id, currentWorkspaceNum);
+      }
+    }
+
+    void background::handle_workspace_event (const i3ipc::workspace_event_t &ev)
+    {
+      DBG_WORKSPACE ("workspace_event: " << (char) ev.type << " number: " << ev.current->num);
+      if (ev.type != i3ipc::WorkspaceEventType::FOCUS)
+        return;
+
+      DBG_WORKSPACE ("Switched from " << ev.old->num);
+      if (ev.current->num == currentWorkspaceNum)
+        {
+          DBG_WORKSPACE ("Duplicate workspace event");
+          return;
+        }
+      currentWorkspace = ev.current->name;
+      currentWorkspaceNum = ev.current->num;
+      currentOutput = ev.current->output;
+//      if (idsMap.size () > 1 && idsMap.rbegin ()->first == ev.old->num)
+//        idsMap.rbegin ()->first = currentWorkspaceNum;
+
+      workspaceMap[currentWorkspaceNum] = currentWorkspace;
+      outputMap[currentOutput] = currentWorkspaceNum;
     }
 
     void background::run (int argc, char **argv)
@@ -447,65 +515,15 @@ namespace i3_focus_last
 
       // Handler of WINDOW EVENT
       conn.on_window_event = [this] (const i3ipc::window_event_t &ev)
-                                        {
-                                            DBG_WINDOW ("window_event: " << (char) ev.type);
-                                            if (!ev.container)
-                                              return;
-                                            DBG_PRIVATE ("ID: " << ev.container->id << " (i3's; X11's - " << ev.container->xwindow_id << ")\n"
-                                                   << "name = \"" << ev.container->name << "\"\n"
-                                                   << "type = \"" << ev.container->type << "\"\n"
-                                                   << "class = \"" << ev.container->window_properties.xclass << "\"\n"
-                                                   << "border = \"" << ev.container->border_raw << "\"\n"
-                                                   << "current_border_width = " << ev.container->current_border_width << "\n"
-                                                   << "layout = \"" << ev.container->layout_raw << "\"\n"
-                                                   << "percent = " << ev.container->percent << "\n"
-                                                   << ((ev.container->urgent)? "urgent" : "")
-                                                   << ((ev.container->focused)? "focused" : ""));
-                                            if (ev.type == i3ipc::WindowEventType::FOCUS)
-                                              {
-                                                uint64_t id = ev.container->id;
-                                                winSetLastFocused(id);
-                                                DBG_PRIVATE ("Switched to #" << ev.container->id << " - " << ev.container->name << " - " << ev.container->window_properties.window_role << std::endl);
-                                              }
-                                            else if (ev.type == i3ipc::WindowEventType::NEW && ev.container->floating == i3ipc::FloatingMode::AUTO_OFF && ev.container->geometry.width < maxAutoFloatW && ev.container->geometry.height < maxAutoFloatH)
-                                              {
-                                                DBG_WINDOW ("auto-floating container " << ev.container->id << " of mode " << (int)ev.container->floating);
-                                                sendCommandConID (ev.container->id, "floating enable");
-                                              }
-                                            else if (ev.type == i3ipc::WindowEventType::CLOSE)
-                                              {
-                                                DBG_WINDOW ("Closed " << ev.container->id);
-                                                winRemoveIfExists (ev.container->id);
-                                              }
-                                            else if (ev.type == i3ipc::WindowEventType::MOVE)
-                                              {
-                                                DBG_WINDOW ("Setting to workspace " << currentWorkspace);
-                                                winSetWorkspace (ev.container->id, currentWorkspaceNum);
-                                              }
-                                        };
+      {
+          this->handle_window_event (ev);
+      };
 
       // Handler of workspace_event
       conn.on_workspace_event = [this] (const i3ipc::workspace_event_t &ev)
-                                           {
-                                               DBG_WORKSPACE ("workspace_event: " << (char) ev.type << " number: " << ev.current->num);
-                                               if (ev.type != i3ipc::WorkspaceEventType::FOCUS)
-                                                 return;
-
-                                               DBG_WORKSPACE ("Switched from " << ev.old->num);
-                                               if (ev.current->num == currentWorkspaceNum)
-                                                 {
-                                                   DBG_WORKSPACE ("Duplicate workspace event");
-                                                   return;
-                                                 }
-                                               currentWorkspace = ev.current->name;
-                                               currentWorkspaceNum = ev.current->num;
-                                               currentOutput = ev.current->output;
-//                                               if (idsMap.size () > 1 && idsMap.rbegin ()->first == ev.old->num)
-//                                                 idsMap.rbegin ()->first = currentWorkspaceNum;
-
-                                               workspaceMap[currentWorkspaceNum] = currentWorkspace;
-                                               outputMap[currentOutput] = currentWorkspaceNum;
-                                           };
+      {
+        this->handle_workspace_event (ev);
+      };
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
